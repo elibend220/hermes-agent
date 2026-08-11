@@ -1,0 +1,17 @@
+{
+  "name": "Eliyahu",
+  "username": "eliyahu",
+  "language": "he",
+  "timezone": "Asia/Jerusalem",
+  "preferences": {
+    "verbose": false,
+    "use_hebrew": true,
+    "emoji_style": true,
+    "proactive_help": true,
+    "research_depth": "moderate",
+    "auto_save_learnings": true,
+    "max_parallel_tasks": 3,
+    "default_response_format": "concise",
+    "notification_level": "important_only"
+  }
+}
