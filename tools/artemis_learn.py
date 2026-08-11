@@ -8,7 +8,7 @@ builds a persistent knowledge base that improves over time.
 
 import json
 from typing import Dict, Any, List, Optional
-from tools import registry
+from tools.registry import registry
 
 
 ARTEMIS_LEARN_SCHEMA = {

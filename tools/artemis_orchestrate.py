@@ -9,7 +9,7 @@ multi-step processes.
 
 import json
 from typing import Dict, Any, List, Optional
-from tools import registry
+from tools.registry import registry
 
 
 ARTEMIS_ORCHESTRATE_SCHEMA = {

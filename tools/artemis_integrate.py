@@ -8,7 +8,7 @@ Manages authentication, data transformation, and bi-directional sync.
 
 import json
 from typing import Dict, Any, List, Optional
-from tools import registry
+from tools.registry import registry
 
 
 ARTEMIS_INTEGRATE_SCHEMA = {

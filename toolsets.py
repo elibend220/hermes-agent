@@ -381,13 +381,14 @@ TOOLSETS = {
     },
 
     "artemis": {
-        "description": "Artemis JARVIS-like integrated AI system: research, execute, integrate, learn, orchestrate",
+        "description": "Artemis JARVIS-like integrated AI system: research, execute, integrate, learn, orchestrate, profile",
         "tools": [
             "artemis_research",
             "artemis_execute",
             "artemis_integrate",
             "artemis_learn",
             "artemis_orchestrate",
+            "artemis_profile",
         ],
         "includes": []
     },
