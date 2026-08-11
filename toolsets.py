@@ -380,6 +380,17 @@ TOOLSETS = {
         "includes": []
     },
 
+    "artemis": {
+        "description": "Artemis JARVIS-like integrated AI system: research, execute, integrate, learn, orchestrate",
+        "tools": [
+            "artemis_research",
+            "artemis_execute",
+            "artemis_integrate",
+            "artemis_learn",
+            "artemis_orchestrate",
+        ],
+        "includes": []
+    },
 
     # Scenario-specific toolsets
     
