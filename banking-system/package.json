@@ -1,0 +1,47 @@
+{
+  "name": "banking-system",
+  "version": "1.0.0",
+  "description": "Production-grade banking webhook gateway with blockchain settlement",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext .ts",
+    "format": "prettier --write src/**/*.ts",
+    "db:migrate": "node dist/migrations/run.js",
+    "db:seed": "node dist/migrations/seed.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ethers": "^6.7.1",
+    "pg": "^8.11.1",
+    "sqlite": "^5.0.1",
+    "sqlite3": "^5.1.6",
+    "redis": "^4.6.5",
+    "kafkajs": "^2.2.4",
+    "joi": "^17.10.2",
+    "helmet": "^7.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "pino": "^8.16.1",
+    "pino-http": "^8.5.0",
+    "uuid": "^9.0.0",
+    "crypto": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.17",
+    "@types/node": "^20.5.0",
+    "@types/pg": "^8.10.7",
+    "typescript": "^5.1.6",
+    "tsx": "^3.13.0",
+    "vitest": "^0.34.5",
+    "eslint": "^8.48.0",
+    "@typescript-eslint/eslint-plugin": "^6.5.0",
+    "@typescript-eslint/parser": "^6.5.0",
+    "prettier": "^3.0.2"
+  }
+}
