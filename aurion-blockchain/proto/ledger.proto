@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package aurion.ledger;
+
+option go_package = "github.com/elibend220/aurion-blockchain/pb/pb_ledger";
+
+// AccountState: Single account in the ledger
+message AccountState {
+  string address = 1;                    // 256-bit account identifier (hex)
+  uint64 balance = 2;                    // Mils (1 AUR = 100,000,000 mils)
+  uint32 nonce = 3;                      // Tx counter (prevent replay)
+
+  enum AccountType {
+    TYPE_UNSPECIFIED = 0;
+    USER = 1;
+    VAULT = 2;
+    VALIDATOR = 3;
+    TREASURY = 4;
+  }
+  AccountType account_type = 4;
+
+  enum PrivacyLevel {
+    PRIVACY_UNSPECIFIED = 0;
+    TRANSPARENT = 1;
+    HYBRID = 2;
+    PRIVATE = 3;
+  }
+  PrivacyLevel privacy_level = 5;
+
+  uint64 created_at = 6;
+  uint64 last_activity = 7;
+
+  // Type-specific metadata
+  message VaultMetadata {
+    string vault_location = 1;
+    string custodian_id = 2;
+    bool requires_multisig = 3;
+    uint32 multisig_threshold = 4;       // e.g., 3 (out of 4)
+  }
+
+  message ValidatorMetadata {
+    string validator_id = 1;
+    uint64 stake = 2;
+    uint64 commission_bps = 3;
+    bool is_active = 4;
+  }
+
+  oneof metadata {
+    VaultMetadata vault = 8;
+    ValidatorMetadata validator = 9;
+  }
+}
+
+// LedgerProof: Merkle proof for account inclusion
+message LedgerProof {
+  string account_address = 1;
+  AccountState account_state = 2;
+  repeated bytes merkle_path = 3;        // Path from leaf to root
+  uint64 leaf_index = 4;
+}
+
+// TransactionHistory: Query results for account transactions
+message TransactionHistory {
+  string account_address = 1;
+  repeated TransactionHistoryEntry entries = 2;
+  uint64 total_count = 3;
+}
+
+message TransactionHistoryEntry {
+  string tx_id = 1;
+  uint64 block_height = 2;
+  uint64 timestamp = 3;
+  string direction = 4;                  // "IN" or "OUT"
+  uint64 amount = 5;
+  string peer_address = 6;               // Other party
+}
+
+// BalanceProof: Cryptographic proof of balance (for light clients)
+message BalanceProof {
+  string account_address = 1;
+  uint64 balance = 2;
+  uint64 at_block_height = 3;
+  bytes state_root = 4;                  // Block's state root
+  repeated bytes merkle_path = 5;        // Path to root
+}
+
+// StateSnapshot: Full or partial ledger state
+message StateSnapshot {
+  uint64 block_height = 1;
+  uint64 timestamp = 2;
+
+  // All accounts (or paginated)
+  repeated AccountState accounts = 3;
+
+  // Merkle tree metadata
+  bytes state_root = 4;
+  uint64 total_accounts = 5;
+}
+
+// LedgerQuery: Request for ledger information
+message LedgerQuery {
+  enum QueryType {
+    QUERY_UNSPECIFIED = 0;
+    GET_ACCOUNT = 1;
+    GET_BALANCE = 2;
+    GET_NONCE = 3;
+    GET_TRANSACTION_HISTORY = 4;
+    GET_STATE_PROOF = 5;
+  }
+  QueryType query_type = 1;
+
+  string account_address = 2;            // Required for most queries
+  uint64 block_height = 3;               // Optional: query at specific height
+
+  // Pagination
+  uint32 limit = 4;
+  uint32 offset = 5;
+}
+
+// LedgerQueryResult: Response to ledger query
+message LedgerQueryResult {
+  bool success = 1;
+  string error = 2;
+
+  // Results (populated based on query type)
+  AccountState account = 3;
+  uint64 balance = 4;
+  uint32 nonce = 5;
+  TransactionHistory tx_history = 6;
+  LedgerProof proof = 7;
+}
+
+// ReserveCommitment: Current reserve state (immutable reference)
+message ReserveCommitment {
+  uint64 updated_at = 1;
+  uint64 block_height = 2;
+
+  message GoldReserve {
+    uint64 total_bars = 1;
+    uint64 total_troy_ounces = 2;
+    bytes merkle_root = 3;
+    repeated string vault_locations = 4;
+    uint32 min_purity_bps = 5;           // 9950 = 99.50%
+  }
+  GoldReserve gold = 3;
+
+  message CommodityReserve {
+    uint64 energy_kwh = 1;
+    uint64 grain_metric_tons = 2;
+    map<string, uint64> minerals_kg = 3;
+  }
+  CommodityReserve commodities = 4;
+
+  message InfrastructureReserve {
+    repeated string port_ids = 1;
+    repeated string solar_grid_ids = 2;
+    repeated string property_ids = 3;
+    uint64 total_monthly_yield_mils = 4;
+  }
+  InfrastructureReserve infrastructure = 5;
+
+  uint64 foreign_clearing_mils = 6;
+
+  // Totals for backing ratio calculation
+  uint64 total_aurions_issued = 7;
+  uint64 max_aurions_allowed = 8;        // Hard cap
+
+  // Health
+  enum HealthStatus {
+    HEALTH_UNSPECIFIED = 0;
+    HEALTHY = 1;
+    WARNING = 2;
+    CRITICAL = 3;
+  }
+  HealthStatus health_status = 9;
+}
+
+// ReserveBackingRatio: Calculate current backing ratio
+message ReserveBackingRatio {
+  uint64 gold_backing_mils = 1;          // 40% required
+  uint64 commodity_backing_mils = 2;     // 30% required
+  uint64 infrastructure_backing_mils = 3;// 20% required
+  uint64 foreign_clearing_mils = 4;      // 10% required
+
+  uint64 total_backing_mils = 5;
+  uint64 total_issued_mils = 6;
+
+  // Ratio = total_backing / total_issued (should be >= 1.0)
+  uint32 ratio_bps = 7;                  // 10000 = 100% = 1.0 ratio
+}
+
+// AuditLog: Immutable log of all state changes
+message AuditLogEntry {
+  uint64 sequence = 1;
+  uint64 timestamp = 2;
+  string action = 3;                     // "MINT" | "TRANSFER" | "BURN" | "ATTEST"
+  string actor = 4;                      // Who performed the action
+  string target = 5;                     // Account or vault affected
+  uint64 amount = 6;                     // If applicable
+  string tx_id = 7;
+}
+
+// ArchiveNode data (for judicial/historical queries)
+message ArchiveBlock {
+  uint64 height = 1;
+  bytes block_hash = 2;
+  uint64 timestamp = 3;
+  repeated ArchiveTransaction transactions = 4;
+}
+
+message ArchiveTransaction {
+  string tx_id = 1;
+  string tx_type = 2;
+  string from_address = 3;
+  string to_address = 4;
+  uint64 amount = 5;
+  string status = 6;
+}

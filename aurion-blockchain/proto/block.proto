@@ -1,0 +1,162 @@
+syntax = "proto3";
+
+package aurion.block;
+
+option go_package = "github.com/elibend220/aurion-blockchain/pb/pb_block";
+
+import "transaction.proto";
+
+// BlockHeader represents the metadata for each block in the Aurion ledger
+message BlockHeader {
+  uint32 version = 1;                    // Protocol version
+  uint64 height = 2;                     // Block sequence number
+  uint64 timestamp = 3;                  // Unix seconds
+  bytes previous_hash = 4;               // SHA3-256 hash of parent block
+  bytes merkle_root = 5;                 // Root of transaction merkle tree
+  bytes reserve_root = 6;                // Root of reserve commitments
+  bytes state_root = 7;                  // Root of account state trie
+
+  // Multisig validator signatures (3-of-4 required)
+  repeated bytes signature = 8;
+  repeated string signer_id = 9;         // RCB, STV, JVN, ICA
+
+  uint64 gas_used = 10;
+  uint64 gas_limit = 11;
+}
+
+// Block is the complete block structure including transactions
+message Block {
+  BlockHeader header = 1;
+
+  // All transactions in this block (max 4 MB)
+  repeated aurion.transaction.Transaction transactions = 2;
+
+  // Reserve attestations (emitted every 100 blocks)
+  repeated ReserveAttestation reserve_attestations = 3;
+
+  // Validator activity metrics
+  repeated ValidatorActivity validator_activity = 4;
+}
+
+// ReserveAttestation cryptographically commits to current reserve state
+message ReserveAttestation {
+  string attestation_id = 1;
+  uint64 block_height = 2;
+  uint64 timestamp = 3;
+
+  // Gold Reserve (40% backing)
+  GoldAttestation gold = 4;
+
+  // Commodities (30% backing)
+  CommodityAttestation commodities = 5;
+
+  // Infrastructure (20% backing)
+  InfrastructureAttestation infrastructure = 6;
+
+  // Foreign Clearing (10% backing)
+  ForeignClearingAttestation foreign_clearing = 7;
+
+  // Validator consensus (3-of-4)
+  repeated bytes validator_signature = 8;
+  repeated string validator_id = 9;
+
+  // Health status
+  enum ReserveHealthStatus {
+    HEALTHY = 0;
+    WARNING = 1;
+    CRITICAL = 2;
+  }
+  ReserveHealthStatus health_status = 10;
+}
+
+// GoldAttestation: Multisig-verified gold bullion commitment
+message GoldAttestation {
+  uint64 total_bars = 1;
+  uint64 total_troy_ounces = 2;
+  bytes merkle_root = 3;                 // All serial numbers committed
+  repeated string vault_locations = 4;   // Deep subterranean vaults
+  uint32 min_purity_bps = 5;             // 9950 = 99.50%
+  repeated bytes custodian_signature = 6; // 3-of-4 vault HSM multisig
+  repeated string custodian_id = 7;
+}
+
+// CommodityAttestation: Energy, grain, minerals verified via IoT
+message CommodityAttestation {
+  uint64 energy_kwh = 1;                 // Strategic energy reserves
+  uint64 grain_metric_tons = 2;          // Agricultural silos
+  map<string, uint64> critical_minerals_kg = 3; // Other minerals
+  bytes telemetry_hash = 4;              // SHA3(sensor data stream)
+  uint64 telemetry_timestamp = 5;        // When sensor data collected
+}
+
+// InfrastructureAttestation: Ports, solar grids, properties
+message InfrastructureAttestation {
+  map<string, uint64> port_monthly_yield_mils = 1;    // (id -> AUR mils)
+  map<string, uint64> solar_monthly_output_mils = 2;  // (id -> mils)
+  map<string, uint64> property_annual_revenue_mils = 3;
+}
+
+// ForeignClearingAttestation: International settlement balances
+message ForeignClearingAttestation {
+  uint64 total_liquid_reserves_mils = 1;   // In AUR equivalents
+  map<string, uint64> currency_breakdown = 2; // ISO 4217 code -> mils
+}
+
+// ValidatorActivity tracks each validator's participation
+message ValidatorActivity {
+  string validator_id = 1;               // RCB, STV, JVN, ICA
+  uint64 blocks_proposed = 2;
+  uint64 blocks_attested = 3;
+  uint64 last_active_height = 4;
+  uint64 uptime_percentage = 5;          // 0-10000 = 0-100%
+}
+
+// BlockchainState represents the current ledger state
+message BlockchainState {
+  uint64 current_height = 1;
+  uint64 total_supply_mils = 2;          // Total AUR in circulation
+  uint64 total_burned_mils = 3;          // Deflationary burn total
+  uint64 circulation_timestamp = 4;
+
+  ReserveState reserve_state = 5;
+
+  enum ChainHealthStatus {
+    OPERATIONAL = 0;
+    DEGRADED = 1;
+    HALTED = 2;
+  }
+  ChainHealthStatus health_status = 6;
+}
+
+// ReserveState is the authoritative reserve commitment
+message ReserveState {
+  uint64 updated_at = 1;
+
+  GoldReserve gold = 2;
+  CommodityReserve commodities = 3;
+  InfrastructureReserve infrastructure = 4;
+
+  uint64 foreign_clearing_mils = 5;
+  uint64 total_aurions_issued = 6;
+  uint64 max_aurions_allowed = 7;        // Hard cap based on formula
+}
+
+message GoldReserve {
+  uint64 total_bars = 1;
+  uint64 total_troy_ounces = 2;
+  bytes merkle_root = 3;
+  repeated string vault_locations = 4;
+}
+
+message CommodityReserve {
+  uint64 energy_kwh = 1;
+  uint64 grain_metric_tons = 2;
+  map<string, uint64> minerals_kg = 3;
+}
+
+message InfrastructureReserve {
+  repeated string port_ids = 1;
+  repeated string solar_grid_ids = 2;
+  repeated string property_ids = 3;
+  uint64 total_monthly_yield_mils = 4;
+}

@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package aurion.consensus;
+
+option go_package = "github.com/elibend220/aurion-blockchain/pb/pb_consensus";
+
+import "block.proto";
+
+// ValidatorSet: The 4 institutional validators (Royal Validators)
+message ValidatorSet {
+  repeated ValidatorInfo validators = 1;
+  uint32 quorum_size = 2;                // 3 (out of 4)
+}
+
+message ValidatorInfo {
+  string validator_id = 1;               // RCB | STV | JVN | ICA
+  string public_key = 2;                 // Ed25519 public key (hex)
+  uint64 stake = 3;                      // Validator's AUR stake
+  uint64 commission_bps = 4;             // 0-10000 basis points
+
+  enum ValidatorRole {
+    ROLE_UNSPECIFIED = 0;
+    CENTRAL_BANK = 1;                    // Royal Central Bank
+    TREASURY = 2;                        // Sovereign Treasury Vaults
+    JUDICIAL = 3;                        // Judicial Verification
+    AUDITOR = 4;                         // Independent Auditor
+  }
+  ValidatorRole role = 5;
+
+  bool is_active = 6;
+  uint64 blocks_proposed = 7;
+  uint64 blocks_attested = 8;
+}
+
+// ProposalMessage: Validator proposes a block
+message ProposalMessage {
+  uint64 round = 1;                      // Round number (deterministic leader)
+  uint64 block_height = 2;
+
+  aurion.block.Block block = 3;          // Proposed block
+
+  string proposer = 4;                   // Which validator proposed
+  bytes proposer_signature = 5;          // Ed25519 signature
+  uint64 timestamp = 6;
+}
+
+// VoteMessage: Validator votes on a proposal
+message VoteMessage {
+  uint64 round = 1;
+  uint64 block_height = 2;
+  bytes block_hash = 3;                  // SHA3-256 of proposed block
+
+  enum VoteType {
+    VOTE_UNSPECIFIED = 0;
+    PREVOTE = 1;                         // I've seen this block
+    PRECOMMIT = 2;                       // I accept this block
+  }
+  VoteType vote_type = 4;
+
+  string voter = 5;                      // Which validator voting
+  bytes voter_signature = 6;             // Ed25519
+  uint64 timestamp = 7;
+}
+
+// CommitMessage: Block is now finalized (3-of-4 signatures)
+message CommitMessage {
+  uint64 block_height = 1;
+  bytes block_hash = 2;
+
+  repeated bytes signatures = 3;         // 3+ validator signatures
+  repeated string signers = 4;           // Which 3 validators
+  uint64 timestamp = 5;
+}
+
+// TimeoutMessage: Round timeout (validator didn't respond)
+message TimeoutMessage {
+  uint64 round = 1;
+  uint64 block_height = 2;
+
+  string who_timed_out = 3;              // Which validator we're skipping
+  uint64 timeout_duration_ms = 4;        // 5000 = 5 seconds
+
+  string proposed_by = 5;                // Who's replacing them
+  bytes signature = 6;
+}
+
+// ProofOfReserveCheckpoint: Periodic reserve verification
+message ProofOfReserveCheckpoint {
+  uint64 block_height = 1;               // Checkpoint at which block
+  uint64 timestamp = 2;
+
+  // Verification results
+  message ReserveCheckResult {
+    string reserve_component = 1;        // "GOLD" | "COMMODITIES" | "INFRASTRUCTURE" | "FOREIGN"
+    bool is_valid = 2;
+    uint64 current_amount = 3;           // In AUR mils
+    uint64 required_amount = 4;
+    bytes merkle_proof = 5;
+  }
+  repeated ReserveCheckResult checks = 3;
+
+  // Health status
+  enum HealthStatus {
+    HEALTH_UNSPECIFIED = 0;
+    HEALTHY = 1;
+    WARNING = 2;
+    CRITICAL = 3;
+  }
+  HealthStatus health_status = 4;
+
+  // Validator signatures (3-of-4)
+  repeated bytes validator_signature = 5;
+  repeated string validator_id = 6;
+}
+
+// ForkResolution: In case of network partition
+message ForkResolution {
+  uint64 fork_height = 1;                // Where chains diverged
+
+  message ForkBranch {
+    string branch_id = 1;                // "MAIN" | "ALTERNATIVE"
+    repeated bytes block_hashes = 2;
+    uint64 chain_weight = 3;             // Votes received
+  }
+  repeated ForkBranch branches = 2;
+
+  string canonical_branch = 3;           // Which one we follow
+
+  // All validators must agree (4-of-4) to resolve forks
+  repeated bytes validator_signature = 4;
+}
+
+// ConsensusState: Current consensus round state
+message ConsensusState {
+  uint64 height = 1;
+  uint64 round = 2;
+
+  enum Phase {
+    PHASE_UNSPECIFIED = 0;
+    PROPOSE = 1;                         // Waiting for proposal
+    PREVOTE = 2;                         // Gathering prevotes
+    PRECOMMIT = 3;                       // Gathering precommits
+    COMMIT = 4;                          // Block committed
+  }
+  Phase phase = 3;
+
+  string proposer = 4;                   // Current round proposer
+  bytes locked_block_hash = 5;           // Block we're locked to (if any)
+
+  uint32 prevote_count = 6;              // Votes for PREVOTE
+  uint32 precommit_count = 7;            // Votes for PRECOMMIT
+}
+
+// BFTState: Full Byzantine Fault Tolerance state machine
+message BFTState {
+  ValidatorSet validators = 1;
+
+  uint64 height = 2;
+  uint64 round = 3;
+
+  ConsensusState consensus = 4;
+
+  // Recent blocks (for quick verification)
+  map<uint64, aurion.block.Block> recent_blocks = 5;
+
+  // Recent votes (for liveness checking)
+  repeated VoteMessage recent_votes = 6;
+}

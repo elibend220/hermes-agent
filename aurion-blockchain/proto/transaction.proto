@@ -1,0 +1,171 @@
+syntax = "proto3";
+
+package aurion.transaction;
+
+option go_package = "github.com/elibend220/aurion-blockchain/pb/pb_transaction";
+
+// Transaction is the top-level union of all transaction types
+message Transaction {
+  string tx_id = 1;                      // Unique identifier
+  uint64 timestamp = 2;                  // Unix seconds when created
+
+  // One-of the 5 transaction types
+  oneof tx_data {
+    TransactionTransfer transfer = 3;
+    TransactionReserveMint reserve_mint = 4;
+    TransactionSovereignTax sovereign_tax = 5;
+    TransactionPhysicalRedemption physical_redemption = 6;
+    TransactionReserveAttestation reserve_attestation = 7;
+  }
+}
+
+// TransactionTransfer: Regular transfer between accounts
+message TransactionTransfer {
+  string from = 1;                       // Sender address (256-bit)
+  string to = 2;                         // Recipient address
+  uint64 amount = 3;                     // Mils (1 AUR = 100,000,000 mils)
+  uint64 fee = 4;                        // Transaction fee (burned)
+  uint32 nonce = 5;                      // Sequence number (prevent replay)
+
+  bool is_private = 6;                   // Use ZK-SNARK privacy
+  bytes zk_proof = 7;                    // If is_private=true
+
+  bytes signature = 8;                   // Ed25519(from, all data)
+}
+
+// TransactionReserveMint: Physical deposit → AUR minting (Royal Treasury only)
+message TransactionReserveMint {
+  string vault_id = 1;                   // e.g., "VAULT_GOLD_SUBTERRANEAN_01"
+
+  enum AssetClass {
+    ASSET_CLASS_UNSPECIFIED = 0;
+    GOLD_BULLION = 1;
+    ENERGY_RESERVES = 2;
+    GRAIN = 3;
+    CRITICAL_MINERALS = 4;
+  }
+  AssetClass asset_class = 2;
+
+  uint64 quantity = 3;                   // Quantity deposited
+  string unit = 4;                       // "troy_oz" | "kwh" | "metric_tons" | "kg"
+  uint32 purity_bps = 5;                 // 9995 = 99.95% for gold
+
+  uint64 aurions_to_mint = 6;            // Mils to mint
+
+  // 3-of-4 multisig vault attestation
+  repeated bytes vault_signature = 7;
+  repeated string vault_signer_id = 8;   // Custodian IDs
+
+  bytes merkle_proof = 9;                // Proof of serial number commitment
+}
+
+// TransactionSovereignTax: Mandatory civic payment (taxation)
+message TransactionSovereignTax {
+  string taxpayer_id = 1;
+  uint64 tax_amount = 2;                 // Mils owed
+
+  enum TaxType {
+    TAX_TYPE_UNSPECIFIED = 0;
+    INCOME = 1;
+    CUSTOMS = 2;
+    REGISTRATION = 3;
+    JUDICIAL = 4;
+  }
+  TaxType tax_type = 3;
+
+  string destination_vault = 4;          // Royal Treasury vault ID
+
+  bool is_anonymous = 5;                 // Use ZK privacy if true
+  bytes zk_proof = 6;                    // ZK-SNARK proof of validity
+
+  uint64 burn_amount = 7;                // 0.025% auto-burn
+  bytes signature = 8;                   // If not anonymous
+}
+
+// TransactionPhysicalRedemption: Burn AUR for physical gold/resources
+message TransactionPhysicalRedemption {
+  string redeemer = 1;
+  uint64 aurions_to_burn = 2;            // Mils to burn
+
+  enum PhysicalAsset {
+    PHYSICAL_ASSET_UNSPECIFIED = 0;
+    GOLD_BULLION = 1;
+    COMMODITY = 2;
+    ENERGY_CREDITS = 3;
+  }
+  PhysicalAsset physical_asset = 3;
+
+  string delivery_address = 4;           // Warehouse or vault for delivery
+  bytes redemption_proof = 5;            // Custodian attestation
+  bytes signature = 6;                   // Ed25519(redeemer, data)
+}
+
+// TransactionReserveAttestation: Proof updates (every 100 blocks)
+message TransactionReserveAttestation {
+  uint64 block_height = 1;               // Which block height
+
+  // Gold attestation
+  message GoldAttestation {
+    uint64 total_bars = 1;
+    uint64 total_troy_ounces = 2;
+    bytes merkle_root = 3;               // SHA3(all serial numbers)
+    repeated string vault_locations = 4;
+    repeated bytes custodian_signature = 5;  // 3-of-4 multisig
+  }
+  GoldAttestation gold = 2;
+
+  // Commodities attestation
+  message CommodityAttestation {
+    uint64 energy_kwh = 1;
+    uint64 grain_metric_tons = 2;
+    map<string, uint64> critical_minerals_kg = 3;
+    bytes telemetry_hash = 4;            // SHA3(IoT sensor data)
+    uint64 telemetry_timestamp = 5;
+  }
+  CommodityAttestation commodities = 3;
+
+  // Infrastructure attestation
+  message InfrastructureAttestation {
+    map<string, uint64> port_monthly_yield_mils = 1;
+    map<string, uint64> solar_monthly_output_mils = 2;
+    map<string, uint64> property_annual_revenue_mils = 3;
+  }
+  InfrastructureAttestation infrastructure = 4;
+
+  // Foreign clearing attestation
+  message ForeignClearingAttestation {
+    uint64 total_liquid_reserves_mils = 1;
+    map<string, uint64> currency_breakdown = 2;
+  }
+  ForeignClearingAttestation foreign_clearing = 5;
+
+  // Validator consensus (3-of-4)
+  repeated bytes validator_signature = 6;
+  repeated string validator_id = 7;
+}
+
+// TransactionReceipt: Result of transaction execution
+message TransactionReceipt {
+  string tx_id = 1;
+  uint64 block_height = 2;
+  uint64 timestamp = 3;
+
+  enum TransactionStatus {
+    STATUS_UNSPECIFIED = 0;
+    PENDING = 1;
+    CONFIRMED = 2;
+    FINALIZED = 3;
+    FAILED = 4;
+  }
+  TransactionStatus status = 4;
+
+  uint64 gas_used = 5;
+  string error_message = 6;              // If FAILED
+}
+
+// MemPoolEntry: Transaction waiting for block inclusion
+message MemPoolEntry {
+  Transaction transaction = 1;
+  uint64 arrival_timestamp = 2;
+  uint64 fee_rate = 3;                   // Fee per byte
+}
